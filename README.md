@@ -2,6 +2,12 @@
 
 A framework for building and orchestrating AI agents, focusing on automating software testing processes starting with software requirements review and up to generating test execution reports.
 
+## Demo
+
+Watch a demo of the project in action:
+
+[Agentic QA Framework Demo](https://youtu.be/jd8s0fLdxLA)
+
 ## Features
 
 *   **Modular Agent Architecture:** Includes specialized agents for:
