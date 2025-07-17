@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agentic Framework Architectural Diagram</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .mermaid svg {
+            margin: 0 auto;
+            display: block;
+        }
+        h1, h2 {
+            color: #1e293b; /* slate-800 */
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold tracking-tight">AI Agentic Framework Architectural Diagram</h1>
+        </header>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+            <h2 class="text-2xl font-semibold mb-4 text-center">A visual overview of the components and communication flows</h2>
+            <!-- Mermaid Diagram Container -->
+            <div class="mermaid w-full overflow-auto">
+graph TD
+    subgraph "System Boundary"
+        direction TB
+        UserRequest["User Request / Trigger"] --> Orchestrator
+
+        subgraph "Orchestration & Communication"
+            Orchestrator["Orchestrator (orchestrator/main.py)"]
+            A2A["<b>A2A Protocol SDK</b>"]
+            Orchestrator -- "Uses to call Agents" --> A2A
+        end
+
+        subgraph "Agent Layer"
+            subgraph "Agents"
+                ReqReview["1. Requirements Review"]
+                Classification["2. Test Case Classification"]
+                Generation["3. Test Case Generation"]
+                CaseReview["4. Test Case Review"]
+            end
+        end
+
+        %% Hub-and-spoke communication
+        A2A -- "Sends Request / Receives Result" <--> ReqReview
+        A2A -- "Sends Request / Receives Result" <--> Classification
+        A2A -- "Sends Request / Receives Result" <--> Generation
+        A2A -- "Sends Request / Receives Result" <--> CaseReview
+
+        subgraph "External Services & Core Dependencies"
+            LLM["Large Language Model (LLM)"]
+            Jira["Ticketing System<br/>(Jira)"]
+            Zephyr["Test Management System<br/>(Zephyr)"]
+            Reporting["Reporting Service<br/>(Allure)"]
+            MCP["<b>Model Context Protocol (MCP)</b><br/>Protocol for Jira Access"]
+        end
+
+        %% Styling
+        style MCP fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,stroke-dasharray: 5 5
+        style A2A fill:#dcfce7,stroke:#16a34a,stroke-width:2px
+
+        %% Agent interactions with external services
+        ReqReview -- "Interacts with" --> LLM
+        Classification -- "Interacts with" --> LLM
+        Generation -- "Interacts with" --> LLM
+        CaseReview -- "Interacts with" --> LLM
+
+        Generation -- "Uses MCP to access" --> Jira
+        CaseReview -- "Uses MCP to access" --> Jira
+        Generation -- "Creates/Fetches Test Cases in" --> Zephyr
+        CaseReview -- "Creates/Fetches Test Cases in" --> Zephyr
+        CaseReview -- "Sends Data" --> Reporting
+    end
+            </div>
+        </div>
+    </div>
+
+    <!-- Mermaid.js Script -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+/.idea
+agents/orchestrator/test_main.py
+mcp/jira/.env
+*.env
+*.pyc
+/allure-report
+/allure-results/
+/.run
