@@ -6,7 +6,6 @@ import base64
 import json
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from datetime import datetime
 from typing import Type, List, Sequence
 
 import uvicorn
@@ -32,7 +31,6 @@ import config
 from agents.agent_executor import DefaultAgentExecutor
 from common import utils
 from common.models import JsonSerializableModel
-
 
 REGISTRATION_PATH = f"{config.ORCHESTRATOR_URL}/register"
 ATTACHMENTS_REMOTE_FOLDER_PATH = config.ATTACHMENTS_REMOTE_FOLDER_PATH

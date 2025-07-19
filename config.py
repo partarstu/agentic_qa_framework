@@ -6,7 +6,10 @@
 Centralized configuration for the application.
 """
 
+from dotenv import load_dotenv
 import os
+
+load_dotenv()
 
 # Logging
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -52,6 +55,7 @@ OPEN_TELEMETRY_URL = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT')
 # Common model config
 TOP_P = 1.0
 TEMPERATURE = 0.0
+
 
 # Orchestrator
 class OrchestratorConfig:
