@@ -7,6 +7,7 @@ import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
 from typing import Dict, List
 from uuid import uuid4
@@ -25,7 +26,7 @@ from pydantic_ai.settings import ModelSettings
 
 import config
 
-MODEL_SETTINGS = ModelSettings(top_p=config.TOP_P, temperature=config.TEMPERATURE )
+MODEL_SETTINGS = ModelSettings(top_p=config.TOP_P, temperature=config.TEMPERATURE)
 
 from common import utils
 from common.models import SelectedAgent, GeneratedTestCases, TestCase, \
@@ -37,8 +38,28 @@ from common.services.test_reporting_client_base_provider import get_test_reporti
 logger = utils.get_logger("orchestrator")
 
 agent_registry: Dict[str, AgentCard] = {}
+discovery_lock = asyncio.Lock()
 
-# --- Original agent for selecting the single best agent ---
+
+def with_exclusive_lock(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        lock_acquired = False
+        try:
+            async with asyncio.timeout(config.OrchestratorConfig.INCOMING_REQUEST_WAIT_TIMEOUT):
+                await discovery_lock.acquire()
+            lock_acquired = True
+            return await func(*args, **kwargs)
+        except TimeoutError:
+            _handle_exception(f"Could not acquire lock to process request, please try again later.", 503)
+        finally:
+            if lock_acquired:
+                discovery_lock.release()
+
+    return wrapper
+
+
+# --- For selecting the single best for the task agent ---
 discovery_agent = Agent(
     model=config.OrchestratorConfig.MODEL_NAME,
     output_type=SelectedAgent,
@@ -51,7 +72,7 @@ discovery_agent = Agent(
     model_settings=MODEL_SETTINGS
 )
 
-# --- New agent for selecting ALL suitable agents ---
+# --- For selecting ALL suitable for the task agents ---
 multi_discovery_agent = Agent(
     model=config.OrchestratorConfig.MODEL_NAME,
     output_type=SelectedAgents,
@@ -63,6 +84,7 @@ multi_discovery_agent = Agent(
 )
 
 
+# --- For mapping between input in unknown format and output in structured format ---
 def _get_results_extractor_agent(output_type: type[JsonSerializableModel] | type[str]):
     return Agent(
         model=config.OrchestratorConfig.MODEL_NAME,
@@ -79,14 +101,13 @@ def _get_results_extractor_agent(output_type: type[JsonSerializableModel] | type
 async def periodic_agent_discovery():
     """Periodically discovers agents."""
     while True:
-        logger.info("Starting periodic agent discovery...")
-        try:
-            await _discover_agents()
-            logger.info("Periodic agent discovery finished.")
-        except Exception as e:
-            _handle_exception(f"An error occurred during periodic agent discovery: {e}")
-        finally:
-            await asyncio.sleep(config.OrchestratorConfig.AGENTS_DISCOVERY_INTERVAL_SECONDS)
+        async with discovery_lock:
+            logger.info("Starting periodic agent discovery...")
+            try:
+                await _discover_agents()
+                logger.info("Periodic agent discovery finished.")
+            except Exception as e:
+                _handle_exception(f"An error occurred during periodic agent discovery: {e}")
 
 
 # noinspection PyUnusedLocal
@@ -109,12 +130,13 @@ orchestrator_app = FastAPI(lifespan=lifespan)
 
 
 @orchestrator_app.post("/new-requirements-available")
+@with_exclusive_lock
 async def review_jira_requirements(request: Request):
     """
     Receives webhook from Jira and triggers the requirements review.
     """
     _validate_request_authorization(request)
-    logger.info(f"Received an event from Jira, requesting requirements review from an agent.")
+    logger.info("Received an event from Jira, requesting requirements review from an agent.")
     user_story_id = await _get_jira_issue_key_from_request(request)
     task_description = "Review the Jira user story"
     agent_name = await _choose_agent_name(task_description)
@@ -122,11 +144,12 @@ async def review_jira_requirements(request: Request):
                                                    task_description)
     await _wait_for_task_successful_completion(agent_name, task_submit_result,
                                                f"Review of the user story {user_story_id}")
-    logger.info(f"Received response from an agent, requirements review seems to be complete.")
+    logger.info("Received response from an agent, requirements review seems to be complete.")
     return {"message": f"Review of the requirements for Jira user story {user_story_id} completed."}
 
 
 @orchestrator_app.post("/story-ready-for-test-case-generation")
+@with_exclusive_lock
 async def trigger_test_case_generation_workflow(request: Request):
     """
     Receives webhook from Jira and triggers the test case generation.
@@ -136,9 +159,11 @@ async def trigger_test_case_generation_workflow(request: Request):
     user_story_id = await _get_jira_issue_key_from_request(request)
     generated_test_cases = await _request_test_cases_generation(user_story_id)
     if not generated_test_cases:
-        _handle_exception(f"Test case generation agent responded provided no generated test cases in its response.")
+        _handle_exception(
+            f"Test case generation agent responded provided no generated test cases in its response.")
 
-    logger.info(f"Got {len(generated_test_cases.test_cases)} generated test cases, requesting their classification.")
+    logger.info(
+        f"Got {len(generated_test_cases.test_cases)} generated test cases, requesting their classification.")
     await _request_test_cases_classification(generated_test_cases.test_cases, user_story_id)
     logger.info(f"Received response from an agent, test case classification seems to be complete.")
 
@@ -146,10 +171,13 @@ async def trigger_test_case_generation_workflow(request: Request):
     await _request_test_cases_review(generated_test_cases.test_cases)
     logger.info(f"Received response from an agent, test case review seems to be complete.")
 
-    return {"message": f"Test case generation and classification for Jira user story {user_story_id} completed."}
+    return {
+        "message": f"Test case generation and classification for Jira user story {user_story_id} completed."
+    }
 
 
 @orchestrator_app.post("/execute-tests")
+@with_exclusive_lock
 async def execute_tests(request: ProjectExecutionRequest):
     _validate_request_authorization(request)
     project_key = request.project_key
@@ -166,19 +194,22 @@ async def execute_tests(request: ProjectExecutionRequest):
     except Exception as e:
         _handle_exception(f"Failed to fetch test cases for project {project_key}: {e}")
 
-    logger.info(f"Retrieved {len(automated_test_cases)} test cases for automatic execution, grouping them by labels "
-                f"and requesting execution for each group.")
+    logger.info(
+        f"Retrieved {len(automated_test_cases)} test cases for automatic execution, grouping them by labels "
+        f"and requesting execution for each group.")
     grouped_test_cases = await _group_test_cases_by_labels(automated_test_cases)
     if not grouped_test_cases:
         logger.info("No tests found which can be automated based on the label.")
-        return {"message": f"No test cases with '{config.OrchestratorConfig.AUTOMATED_TC_LABEL}' label found."}
+        return {
+            "message": f"No test cases with '{config.OrchestratorConfig.AUTOMATED_TC_LABEL}' label found."}
 
     all_execution_results = await _request_all_test_cases_execution(grouped_test_cases)
     logger.info(f"Collected execution results for {len(all_execution_results)} test cases.")
     if all_execution_results:
         logger.info(f"Generating test execution report based on all execution results.")
         await _generate_test_report(all_execution_results, project_key, test_management_client)
-    return {"message": f"Test execution completed for project {project_key}. Ran {len(all_execution_results)} tests."}
+    return {
+        "message": f"Test execution completed for project {project_key}. Ran {len(all_execution_results)} tests."}
 
 
 async def _generate_test_report(all_execution_results, project_key, test_management_client):
@@ -559,12 +590,12 @@ async def _discover_agents():
     """
     Discovers remote agents by scanning a port range on each of the configured base URLs.
     """
-    agent_base_urls_str = config.REMOTE_EXECUTION_AGENTS_URLS
+    agent_base_urls_str = config.REMOTE_EXECUTION_AGENT_HOSTS
     port_range_str = config.AGENT_DISCOVERY_PORTS
 
     if not agent_base_urls_str or not port_range_str:
         logger.info("Agent discovery configuration is incomplete. "
-                    "Please set both REMOTE_EXECUTION_AGENTS_URLS and AGENT_DISCOVERY_PORTS.")
+                    "Please set both REMOTE_EXECUTION_AGENT_HOSTS and AGENT_DISCOVERY_PORTS.")
         return
 
     base_urls = [url.strip() for url in agent_base_urls_str.split(',')]

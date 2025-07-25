@@ -3,3 +3,6 @@ a2a-sdk~=0.2.12
 allure-python-commons~=2.14.3
 allure-combine~=1.0.11
 python-dotenv
+gunicorn
+google-cloud-logging
+google-cloud-storage

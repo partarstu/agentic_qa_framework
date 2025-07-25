@@ -1,0 +1,13 @@
+.git
+.idea
+__pycache__
+.venv
+allure-report
+allure-results
+*.env
+mcp/jira/.env
+agents/orchestrator/test_main.py
+.run
+GEMINI.md
+/.gemini
+substitutions.yaml

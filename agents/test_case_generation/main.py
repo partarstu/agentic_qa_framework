@@ -5,24 +5,25 @@
 from pydantic_ai.mcp import MCPServerSSE
 
 import config
-from agents.agent_base import AgentBase, ATTACHMENTS_REMOTE_FOLDER_PATH
+from agents.agent_base import AgentBase, MCP_SERVER_ATTACHMENTS_FOLDER_PATH
 from agents.test_case_generation.prompt import TestCaseGenerationSystemPrompt
 from common import utils
 from common.models import JiraUserStory, GeneratedTestCases
 from common.services.test_management_system_client_provider import get_test_management_client
 
 logger = utils.get_logger("test_case_generation_agent")
-jira_mcp_server = MCPServerSSE(url=config.JIRA_MCP_SERVER_URL)
+jira_mcp_server = MCPServerSSE(url=config.JIRA_MCP_SERVER_URL, timeout=config.MCP_SERVER_TIMEOUT_SECONDS)
 
 
 class TestCaseGenerationAgent(AgentBase):
     def __init__(self):
         instruction_prompt = TestCaseGenerationSystemPrompt(
-            attachments_remote_folder_path=ATTACHMENTS_REMOTE_FOLDER_PATH)
+            attachments_remote_folder_path=MCP_SERVER_ATTACHMENTS_FOLDER_PATH)
         super().__init__(
             agent_name=config.TestCaseGenerationAgentConfig.OWN_NAME,
-            host=config.AGENT_HOST,
+            host=config.AGENT_BASE_URL,
             port=config.TestCaseGenerationAgentConfig.PORT,
+            external_port=config.TestCaseGenerationAgentConfig.EXTERNAL_PORT,
             protocol=config.TestCaseGenerationAgentConfig.PROTOCOL,
             model_name=config.TestCaseGenerationAgentConfig.MODEL_NAME,
             output_type=GeneratedTestCases,
@@ -55,5 +56,8 @@ class TestCaseGenerationAgent(AgentBase):
         return f"Successfully created test cases with following keys (IDs): {', '.join(created_test_case_ids)}"
 
 
+agent = TestCaseGenerationAgent()
+app = agent.a2a_server
+
 if __name__ == "__main__":
-    TestCaseGenerationAgent().start_as_server()
+    agent.start_as_server()

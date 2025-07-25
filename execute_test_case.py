@@ -12,7 +12,8 @@ from a2a.client import A2AClient
 from a2a.types import SendMessageRequest, MessageSendParams, JSONRPCErrorResponse, Task, Artifact, TextPart
 from a2a.utils import new_agent_text_message
 
-from common import utils, config
+import config
+from common import utils
 from common.models import TestCase
 from common.services.test_management_system_client_provider import get_test_management_client
 

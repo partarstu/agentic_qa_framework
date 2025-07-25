@@ -33,8 +33,8 @@ from common import utils
 from common.models import JsonSerializableModel
 
 REGISTRATION_PATH = f"{config.ORCHESTRATOR_URL}/register"
-ATTACHMENTS_REMOTE_FOLDER_PATH = config.ATTACHMENTS_REMOTE_FOLDER_PATH
-ATTACHMENTS_LOCAL_FOLDER_PATH = config.ATTACHMENTS_LOCAL_FOLDER_PATH
+MCP_SERVER_ATTACHMENTS_FOLDER_PATH = config.MCP_SERVER_ATTACHMENTS_FOLDER_PATH
+ATTACHMENTS_DESTINATION_FOLDER_PATH = config.ATTACHMENTS_DESTINATION_FOLDER_PATH
 logger = utils.get_logger("agent_base")
 
 
@@ -45,6 +45,7 @@ class AgentBase(ABC):
             host: str,
             protocol: str,
             port: int,
+            external_port: int,
             model_name: str,
             output_type: Type[BaseModel],
             instructions: str,
@@ -57,15 +58,16 @@ class AgentBase(ABC):
         self.agent_name = agent_name
         self.host = host
         self.port = port
+        self.external_port = external_port
         self.protocol = protocol
-        self.url = f"{self.protocol}://{self.host}:{self.port}"
+        self.url = f"{self.host}:{self.external_port}"
         self.model_name = model_name
         self.output_type = output_type
         self.instructions = instructions
         self.deps_type = deps_type
         self.description = description
         self.model_settings = model_settings if model_settings else self.get_default_model_settings(model_name)
-        self.mcp_servers = mcp_servers
+        self.mcp_servers = mcp_servers or []
         self.tools = tools
         self.agent = self._create_agent()
         self.a2a_server = self._get_server()
@@ -134,7 +136,8 @@ class AgentBase(ABC):
     async def run(self, received_message: Message) -> Message:
         received_request = self._get_all_received_contents(received_message)
         logger.info(f"Got a task to execute, starting execution.")
-        result = await self.agent.run(received_request)
+        async with self.agent.run_mcp_servers():
+            result = await self.agent.run(received_request)
         self._log_model_messages(result.new_messages())
         logger.info(f"Completed execution of the task.")
         return self._get_text_message_from_results(result)
@@ -142,24 +145,27 @@ class AgentBase(ABC):
     # noinspection PyUnusedLocal
     @asynccontextmanager
     async def _lifespan(self, app: FastAPI):
-        async with self.agent.run_mcp_servers():
-            logger.info(f"{self.agent_name} started.")
+        logger.info(f"{self.agent_name} started.")
+        logger.info(f"Using following MCP server URLs: {[server.url for server in self.mcp_servers]}")
 
-            yield
+        yield
 
-            logger.info("Shutting down.")
+        logger.info("Shutting down.")
 
     @staticmethod
     def _get_media_file_content(file_path: str) -> BinaryContent:
-        """Fetches the content of a media file from the local file system.
+        """Fetches the content of a media file from the local file system or the cloud storage.
 
             Args:
-                file_path: The local path to the media file.
+                file_path: The path to the media file.
 
             Returns:
                 A BinaryContent object containing the file's data.
             """
-        return utils.fetch_media_file_content(file_path, ATTACHMENTS_LOCAL_FOLDER_PATH)
+        if config.USE_GOOGLE_CLOUD_STORAGE:
+            return utils.fetch_media_file_content_from_gcs(file_path, config.GOOGLE_CLOUD_STORAGE_BUCKET_NAME)
+        else:
+            return utils.fetch_media_file_content_from_local(file_path, ATTACHMENTS_DESTINATION_FOLDER_PATH)
 
     def _get_server(self) -> FastAPI:
         request_handler = DefaultRequestHandler(

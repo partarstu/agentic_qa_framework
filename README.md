@@ -70,7 +70,13 @@ For a visual representation of the system's architecture and data flow, please r
 3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
-   ``` 
+   ```
+
+### Docker Images
+
+The project utilizes Docker for containerization of the orchestrator and agent services. All services are built upon the `python:3.13-slim` base image.
+
+Each service runs using `gunicorn` as the WSGI server. The command for agents is `gunicorn -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT agents.<agent_name>.main:app`, and for the orchestrator, it is `gunicorn -w 1 -k uvicorn.workers.UvicornWorker orchestrator.main:orchestrator_app`. Note that `$PORT` refers to the internal port the agent listens on, while the `AgentCard` will use the `EXTERNAL_PORT` for its URL.
 
 ### Environment Variables
 
@@ -80,6 +86,7 @@ behavior of the orchestrator and agents.
 ```
 # Logging
 LOG_LEVEL=INFO # Default: INFO. Controls the verbosity of logging.
+GOOGLE_CLOUD_LOGGING_ENABLED=False # Default: False. Set to "True" to enable Google Cloud Logging.
 
 # Orchestrator
 ORCHESTRATOR_HOST=localhost # Default: localhost. The host where the orchestrator runs.
@@ -97,12 +104,13 @@ JIRA_WEBHOOK_SECRET=YOUR_JIRA_WEBHOOK_SECRET # Required. Secret key for validati
 
 # Agent Configuration
 AGENT_BASE_URL=http://localhost # Default: http://localhost. Base URL for agents.
-AGENT_HOST=localhost # Default: localhost. Host for individual agents.
+PORT=8001 # Default: 8001. The internal port an agent listens on.
+EXTERNAL_PORT=443 # Default: 443. The externally accessible port for the agent (e.g., for cloud deployments).
 ATTACHMENTS_REMOTE_FOLDER_PATH=/tmp # Default: /tmp. Remote folder path for attachments (inside Docker container for MCP server).
 ATTACHMENTS_LOCAL_FOLDER_PATH=D://temp # Default: D://temp. Local folder path for attachments (on your machine, mounted to MCP server container).
 
 # Agent Discovery (for remote agents)
-REMOTE_EXECUTION_AGENTS_URLS=http://localhost # Default: http://localhost. Comma-separated URLs of remote agent hosts.
+REMOTE_EXECUTION_AGENT_HOSTS=http://localhost # Default: http://localhost. Comma-separated URLs of remote agent hosts.
 AGENT_DISCOVERY_PORTS=8001-8005 # Default: 8001-8005. Port range for agent discovery.
 
 # OpenTelemetry (for tracing and metrics)
@@ -193,6 +201,129 @@ To run the Jira MCP server, you will need Docker installed.
       ```bash
       python agents/test_case_review/main.py
       ```
+
+### Deployment to Google Cloud Run
+
+This project is configured for deployment to Google Cloud Run. The `cloudbuild.yaml` file orchestrates the building of Docker images and their deployment as separate services.
+
+**Deployment Process:**
+
+1.  **Build Images:** Docker images for each service are built and tagged with `gcr.io/$PROJECT_ID/<service-name>`.
+2.  **Push Images:** The built images are pushed to Google Container Registry.
+3.  **Deploy Services:** Each service is deployed to Google Cloud Run.
+
+To deploy the application, you will need to have the `gcloud` CLI installed and configured. Ensure your Google Cloud project is set up and you have the necessary permissions (e.g., Cloud Run Admin, Service Account User, Storage Admin for Cloud Build).
+
+Run the following command from the root of the project:
+
+```bash
+gcloud builds submit --config cloudbuild.yaml .
+```
+
+**Deployed Services and Configuration:**
+
+The following services are deployed to Google Cloud Run in the `us-central1` region:
+
+*   **jira-mcp-server**
+    *   **Image:** `mcp/atlassian:latest`
+    *   **Access:** Internal (`--ingress=internal`, `--no-allow-unauthenticated`)
+    *   **Max Instances:** 1
+    *   **Concurrency:** 5
+    *   **Port:** 9000
+    *   **Secrets:**
+        *   `JIRA_API_TOKEN`
+        *   `JIRA_USERNAME`
+        *   `JIRA_URL`
+    *   **Arguments:** `--transport sse --port 9000 -vv`
+
+*   **requirements-review-agent**
+    *   **Image:** `gcr.io/$PROJECT_ID/requirements-review-agent`
+    *   **Access:** Internal (`--ingress=internal`, `--no-allow-unauthenticated`)
+    *   **Max Instances:** 1
+    *   **Concurrency:** 1
+    *   **Port:** 8001
+    *   **Environment Variables:**
+        *   `USE_CLOUD_STORAGE=true`
+        *   `GOOGLE_CLOUD_LOGGING_ENABLED=true`
+    *   **Secrets:**
+        *   `GOOGLE_API_KEY`
+        *   `GROQ_API_KEY`
+        *   `JIRA_API_TOKEN`
+        *   `JIRA_USERNAME`
+        *   `ZEPHYR_API_TOKEN`
+        *   `JIRA_URL`
+
+*   **test-case-generation-agent**
+    *   **Image:** `gcr.io/$PROJECT_ID/test-case-generation-agent`
+    *   **Access:** Internal (`--ingress=internal`, `--no-allow-unauthenticated`)
+    *   **Max Instances:** 1
+    *   **Concurrency:** 1
+    *   **Port:** 8001
+    *   **Environment Variables:**
+        *   `USE_CLOUD_STORAGE=true`
+        *   `GOOGLE_CLOUD_LOGGING_ENABLED=true`
+    *   **Secrets:**
+        *   `GOOGLE_API_KEY`
+        *   `GROQ_API_KEY`
+        *   `JIRA_API_TOKEN`
+        *   `JIRA_USERNAME`
+        *   `ZEPHYR_API_TOKEN`
+        *   `JIRA_URL`
+
+*   **test-case-classification-agent**
+    *   **Image:** `gcr.io/$PROJECT_ID/test-case-classification-agent`
+    *   **Access:** Internal (`--ingress=internal`, `--no-allow-unauthenticated`)
+    *   **Max Instances:** 1
+    *   **Concurrency:** 1
+    *   **Port:** 8001
+    *   **Environment Variables:**
+        *   `USE_CLOUD_STORAGE=true`
+        *   `GOOGLE_CLOUD_LOGGING_ENABLED=true`
+    *   **Secrets:**
+        *   `GOOGLE_API_KEY`
+        *   `GROQ_API_KEY`
+        *   `JIRA_API_TOKEN`
+        *   `JIRA_USERNAME`
+        *   `ZEPHYR_API_TOKEN`
+        *   `JIRA_URL`
+
+*   **test-case-review-agent**
+    *   **Image:** `gcr.io/$PROJECT_ID/test-case-review-agent`
+    *   **Access:** Internal (`--ingress=internal`, `--no-allow-unauthenticated`)
+    *   **Max Instances:** 1
+    *   **Concurrency:** 1
+    *   **Port:** 8001
+    *   **Environment Variables:**
+        *   `USE_CLOUD_STORAGE=true`
+        *   `GOOGLE_CLOUD_LOGGING_ENABLED=true`
+    *   **Secrets:**
+        *   `GOOGLE_API_KEY`
+        *   `GROQ_API_KEY`
+        *   `JIRA_API_TOKEN`
+        *   `JIRA_USERNAME`
+        *   `ZEPHYR_API_TOKEN`
+        *   `JIRA_URL`
+
+*   **orchestrator**
+    *   **Image:** `gcr.io/$PROJECT_ID/orchestrator`
+    *   **Access:** Public (`--allow-unauthenticated`)
+    *   **Memory:** 1Gi
+    *   **Max Instances:** 1
+    *   **Concurrency:** 1
+    *   **Environment Variables:**
+        *   `REMOTE_EXECUTION_AGENT_HOSTS=http://localhost` #This one needs to be changed based on the host names of agent services running in the cloud  
+        *   `AGENT_DISCOVERY_PORTS=8001-8001`
+        *   `GOOGLE_CLOUD_LOGGING_ENABLED=true`
+        *   `USE_CLOUD_STORAGE=true`
+    *   **Secrets:**
+        *   `GOOGLE_API_KEY`
+        *   `GROQ_API_KEY`
+        *   `JIRA_API_TOKEN`
+        *   `JIRA_USERNAME`
+        *   `ZEPHYR_API_TOKEN`
+        *   `JIRA_URL`
+
+
 
 ## Usage
 

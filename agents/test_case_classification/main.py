@@ -12,7 +12,7 @@ from common.models import ClassifiedTestCases, TestCaseKeys
 from common.services.test_management_system_client_provider import get_test_management_client
 
 logger = utils.get_logger("test_case_classification_agent")
-jira_mcp_server = MCPServerSSE(url=config.JIRA_MCP_SERVER_URL)
+jira_mcp_server = MCPServerSSE(url=config.JIRA_MCP_SERVER_URL, timeout=config.MCP_SERVER_TIMEOUT_SECONDS)
 
 
 class TestCaseClassificationAgent(AgentBase):
@@ -20,8 +20,9 @@ class TestCaseClassificationAgent(AgentBase):
         instruction_prompt = TestCaseClassificationSystemPrompt()
         super().__init__(
             agent_name=config.TestCaseClassificationAgentConfig.OWN_NAME,
-            host=config.AGENT_HOST,
+            host=config.AGENT_BASE_URL,
             port=config.TestCaseClassificationAgentConfig.PORT,
+            external_port=config.TestCaseClassificationAgentConfig.EXTERNAL_PORT,
             protocol=config.TestCaseClassificationAgentConfig.PROTOCOL,
             model_name=config.TestCaseClassificationAgentConfig.MODEL_NAME,
             output_type=ClassifiedTestCases,
@@ -52,5 +53,8 @@ class TestCaseClassificationAgent(AgentBase):
         return f"Successfully added labels {', '.join(labels)} to the test case with key(ID) '{test_case_key}'"
 
 
+agent = TestCaseClassificationAgent()
+app = agent.a2a_server
+
 if __name__ == "__main__":
-    TestCaseClassificationAgent().start_as_server()
+    agent.start_as_server()
