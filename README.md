@@ -120,6 +120,7 @@ AGENT_DISCOVERY_PORTS=8001-8005 # Default: 8001-8005. Port range for agent disco
 USE_GOOGLE_CLOUD_STORAGE=False # Default: False. Is set to "True" if running in the Google Cloud.
 GOOGLE_CLOUD_STORAGE_BUCKET_NAME=YOUR_BUCKET_NAME # Required if USE_GOOGLE_CLOUD_STORAGE is True. The name of the GCS 
                                  bucket in which downloaded by Jira MCP server attachments are stored.
+JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER=jira # Default: jira. The folder within the GCS bucket where Jira attachments are stored.
 
 # OpenTelemetry (for tracing and metrics)
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 # Default: http://localhost:4317. Endpoint for OpenTelemetry collector.
@@ -214,9 +215,14 @@ To run the Jira MCP server, you will need Docker installed.
 ### Deployment to Google Cloud Run
 
 This project is already configured for deployment to Google Cloud Run. The `cloudbuild.yaml` file orchestrates the
-building of Docker images and their deployment as separate services. The deployment process is fully automatic, all you
-need is existing Cloud Storage bucket and setting up the **following secrets in the Google Secrets Manager with
-corresponding values**:
+building of Docker images and their deployment as separate services. You need to have the gcloud CLI installed before
+you run any of the commands below.
+
+The deployment process is fully automatic, all you need is to create one Cloud Storage bucket for general operations (
+with all needed folders created, see "Substitution Variables"), one Cloud Storage bucket for storing and publicly
+serving test execution reports (this bucket needs to have public access), and finally setting up the **following secrets
+in the Google Secrets Manager with corresponding
+values**:
 
 * `GOOGLE_API_KEY`
 * `JIRA_API_TOKEN`
@@ -229,13 +235,18 @@ corresponding values**:
 After having all secrets set up, you can execute the following command:
 
 ```bash
-gcloud builds submit --config 'cloudbuild.yaml' --substitutions "`^;`^_BUCKET_NAME=<YOUR_BUCKET_NAME>;_REQUIREMENTS_REVIEW_AGENT_BASE_URL=<YOUR_REQUIREMENTS_REVIEW_AGENT_URL>;_TEST_CASE_GENERATION_AGENT_BASE_URL=<YOUR_TEST_CASE_GENERATION_AGENT_URL>;_TEST_CASE_CLASSIFICATION_AGENT_BASE_URL=<YOUR_TEST_CASE_CLASSIFICATION_AGENT_URL>;_TEST_CASE_REVIEW_AGENT_BASE_URL=<YOUR_TEST_CASE_REVIEW_AGENT_URL>;_REMOTE_EXECUTION_AGENT_HOSTS=<YOUR_REMOTE_EXECUTION_AGENT_HOSTS>" .
+gcloud builds submit --config 'path/to/your/cloudbuild.yaml' --substitutions "^;^_BUCKET_NAME=YOUR_GCS_BUCKET_NAME;_ALLURE_REPORTS_BUCKET=YOUR_ALLURE_REPORTS_BUCKET_NAME;_REQUIREMENTS_REVIEW_AGENT_BASE_URL=YOUR_REQUIREMENTS_REVIEW_AGENT_URL;_TEST_CASE_GENERATION_AGENT_BASE_URL=YOUR_TEST_CASE_GENERATION_AGENT_URL;_TEST_CASE_CLASSIFICATION_AGENT_BASE_URL=YOUR_TEST_CASE_CLASSIFICATION_AGENT_URL;_TEST_CASE_REVIEW_AGENT_BASE_URL=YOUR_TEST_CASE_REVIEW_AGENT_URL;_REMOTE_EXECUTION_AGENT_HOSTS=YOUR_COMMA_SEPARATED_AGENT_HOSTS" .
+```
+
+```powershell
+gcloud builds submit --config 'path/to/your/cloudbuild.yaml' --substitutions "`^;`^_BUCKET_NAME=YOUR_GCS_BUCKET_NAME;_ALLURE_REPORTS_BUCKET=YOUR_ALLURE_REPORTS_BUCKET_NAME;_REQUIREMENTS_REVIEW_AGENT_BASE_URL=YOUR_REQUIREMENTS_REVIEW_AGENT_URL;_TEST_CASE_GENERATION_AGENT_BASE_URL=YOUR_TEST_CASE_GENERATION_AGENT_URL;_TEST_CASE_CLASSIFICATION_AGENT_BASE_URL=YOUR_TEST_CASE_CLASSIFICATION_AGENT_URL;_TEST_CASE_REVIEW_AGENT_BASE_URL=YOUR_TEST_CASE_REVIEW_AGENT_URL;_REMOTE_EXECUTION_AGENT_HOSTS=YOUR_COMMA_SEPARATED_AGENT_HOSTS" .
 ```
 
 **Substitution Variables:**
 
 * `_BUCKET_NAME`: The name of the Google Cloud Storage bucket used for storing attachments downloaded by Jira MCP
   server.
+* `_ALLURE_REPORTS_BUCKET`: The GCS bucket where test execution HTML reports will be stored.
 * `_REQUIREMENTS_REVIEW_AGENT_BASE_URL`: The URL of the deployed Requirements Review Agent.
 * `_TEST_CASE_GENERATION_AGENT_BASE_URL`: The URL of the deployed Test Case Generation Agent.
 * `_TEST_CASE_CLASSIFICATION_AGENT_BASE_URL`: The URL of the deployed Test Case Classification Agent.

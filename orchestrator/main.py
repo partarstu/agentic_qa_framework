@@ -20,25 +20,52 @@ from a2a.types import TaskState, AgentCard, Artifact, Task, SendMessageRequest, 
     TextPart, \
     FilePart, FileWithBytes
 from a2a.utils import new_agent_text_message, get_message_text
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Security, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.security import APIKeyHeader
 from pydantic_ai import Agent
 from pydantic_ai.settings import ModelSettings
 
 import config
-
-MODEL_SETTINGS = ModelSettings(top_p=config.TOP_P, temperature=config.TEMPERATURE)
-
 from common import utils
-from common.models import SelectedAgent, GeneratedTestCases, TestCase, \
-    ProjectExecutionRequest, TestExecutionResult, TestExecutionRequest, AggregatedTestResults, SelectedAgents, \
-    JsonSerializableModel
+from common.models import SelectedAgent, GeneratedTestCases, TestCase, ProjectExecutionRequest, TestExecutionResult, \
+    TestExecutionRequest, AggregatedTestResults, SelectedAgents, JsonSerializableModel
 from common.services.test_management_system_client_provider import get_test_management_client
 from common.services.test_reporting_client_base_provider import get_test_reporting_client
+
+MODEL_SETTINGS = ModelSettings(top_p=config.TOP_P, temperature=config.TEMPERATURE)
 
 logger = utils.get_logger("orchestrator")
 
 agent_registry: Dict[str, AgentCard] = {}
 discovery_lock = asyncio.Lock()
+
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+
+
+# noinspection PyUnusedLocal
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Orchestrator starting up...")
+    discovery_task = asyncio.create_task(periodic_agent_discovery())
+
+    yield
+
+    logger.info("Orchestrator shutting down.")
+    if not discovery_task.cancel():
+        try:
+            await discovery_task
+        except asyncio.CancelledError:
+            logger.info("Agent discovery task successfully cancelled.")
+
+
+orchestrator_app = FastAPI(lifespan=lifespan)
+
+
+def _validate_api_key(api_key: str = Security(api_key_header)):
+    if config.OrchestratorConfig.API_KEY and api_key != config.OrchestratorConfig.API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
 
 
 def with_exclusive_lock(func):
@@ -51,7 +78,7 @@ def with_exclusive_lock(func):
             lock_acquired = True
             return await func(*args, **kwargs)
         except TimeoutError:
-            _handle_exception(f"Could not acquire lock to process request, please try again later.", 503)
+            _handle_exception("Could not acquire lock to process request, please try again later.", 503)
         finally:
             if lock_acquired:
                 discovery_lock.release()
@@ -101,32 +128,16 @@ def _get_results_extractor_agent(output_type: type[JsonSerializableModel] | type
 async def periodic_agent_discovery():
     """Periodically discovers agents."""
     while True:
-        async with discovery_lock:
-            logger.info("Starting periodic agent discovery...")
-            try:
+        try:
+            async with discovery_lock:
+                logger.info("Starting periodic agent discovery...")
                 await _discover_agents()
                 logger.info("Periodic agent discovery finished.")
-            except Exception as e:
-                _handle_exception(f"An error occurred during periodic agent discovery: {e}")
-
-
-# noinspection PyUnusedLocal
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("Orchestrator starting up...")
-    discovery_task = asyncio.create_task(periodic_agent_discovery())
-
-    yield
-
-    logger.info("Orchestrator shutting down.")
-    if not discovery_task.cancel():
-        try:
-            await discovery_task
-        except asyncio.CancelledError:
-            logger.info("Agent discovery task successfully cancelled.")
-
-
-orchestrator_app = FastAPI(lifespan=lifespan)
+        except Exception as e:
+            _handle_exception(f"An error occurred during periodic agent discovery: {e}")
+        finally:
+            logger.info("Lock released by agent discovery.")
+            await asyncio.sleep(config.OrchestratorConfig.AGENTS_DISCOVERY_INTERVAL_SECONDS)
 
 
 @orchestrator_app.post("/new-requirements-available")
@@ -135,7 +146,6 @@ async def review_jira_requirements(request: Request):
     """
     Receives webhook from Jira and triggers the requirements review.
     """
-    _validate_request_authorization(request)
     logger.info("Received an event from Jira, requesting requirements review from an agent.")
     user_story_id = await _get_jira_issue_key_from_request(request)
     task_description = "Review the Jira user story"
@@ -154,22 +164,21 @@ async def trigger_test_case_generation_workflow(request: Request):
     """
     Receives webhook from Jira and triggers the test case generation.
     """
-    _validate_request_authorization(request)
-    logger.info(f"Received an event from Jira, requesting test case generation from an agent.")
+    logger.info("Received an event from Jira, requesting test case generation from an agent.")
     user_story_id = await _get_jira_issue_key_from_request(request)
     generated_test_cases = await _request_test_cases_generation(user_story_id)
     if not generated_test_cases:
         _handle_exception(
-            f"Test case generation agent responded provided no generated test cases in its response.")
+            "Test case generation agent responded provided no generated test cases in its response.")
 
     logger.info(
         f"Got {len(generated_test_cases.test_cases)} generated test cases, requesting their classification.")
     await _request_test_cases_classification(generated_test_cases.test_cases, user_story_id)
-    logger.info(f"Received response from an agent, test case classification seems to be complete.")
+    logger.info("Received response from an agent, test case classification seems to be complete.")
 
-    logger.info(f"Requesting review of all generated test cases.")
+    logger.info("Requesting review of all generated test cases.")
     await _request_test_cases_review(generated_test_cases.test_cases)
-    logger.info(f"Received response from an agent, test case review seems to be complete.")
+    logger.info("Received response from an agent, test case review seems to be complete.")
 
     return {
         "message": f"Test case generation and classification for Jira user story {user_story_id} completed."
@@ -179,7 +188,7 @@ async def trigger_test_case_generation_workflow(request: Request):
 @orchestrator_app.post("/execute-tests")
 @with_exclusive_lock
 async def execute_tests(request: ProjectExecutionRequest):
-    _validate_request_authorization(request)
+    # _validate_request_authorization(request)
     project_key = request.project_key
     logger.info(f"Received request to execute automated tests for project '{project_key}'.")
     test_management_client = get_test_management_client()
@@ -206,7 +215,7 @@ async def execute_tests(request: ProjectExecutionRequest):
     all_execution_results = await _request_all_test_cases_execution(grouped_test_cases)
     logger.info(f"Collected execution results for {len(all_execution_results)} test cases.")
     if all_execution_results:
-        logger.info(f"Generating test execution report based on all execution results.")
+        logger.info("Generating test execution report based on all execution results.")
         await _generate_test_report(all_execution_results, project_key, test_management_client)
     return {
         "message": f"Test execution completed for project {project_key}. Ran {len(all_execution_results)} tests."}
@@ -378,7 +387,7 @@ async def _request_test_cases_review(test_cases: List[TestCase]) -> list[Artifac
     task_description = "Review test cases"
     agent_name = await _choose_agent_name(task_description)
     task_submit_result = await _send_task_to_agent(agent_name, f"Test cases:\n{test_cases}", task_description)
-    return await _get_task_execution_artifacts(agent_name, f"Review of test cases", task_submit_result)
+    return await _get_task_execution_artifacts(agent_name, "Review of test cases", task_submit_result)
 
 
 async def _extract_generated_test_case_issue_keys_from_agent_response(results: list[Artifact], task_description: str) -> \
@@ -522,14 +531,6 @@ def _is_task_still_running(task_state: TaskState) -> bool:
 
 def _get_time_left_for_task_completion_waiting(start_time):
     return config.OrchestratorConfig.TASK_EXECUTION_TIMEOUT - (time.time() - start_time)
-
-
-def _validate_request_authorization(request):
-    if config.JIRA_WEBHOOK_SECRET:
-        signature = request.headers.get("X-Jira-Webhook-Signature")
-        if not signature:
-            _handle_exception(f"Received an unauthorized request to trigger Test Case Generation Google Cloud function "
-                              f"from {request.url}", 401)
 
 
 async def _select_all_suitable_agents(task_description: str) -> List[str]:

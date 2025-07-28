@@ -11,7 +11,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from allure_combine import combine_allure
 from allure_commons.logger import AllureFileLogger
 from allure_commons.model2 import TestResult, TestStepResult, StatusDetails, Status, Attachment
 
@@ -88,9 +87,16 @@ class AllureClient(TestReportingClientBase):
     def _generate_html(self):
         logger.info(f"Generating Allure HTML report in {self.report_dir}...")
         try:
-            command = ["allure", "generate", str(self.results_dir), "-o", str(self.report_dir), "--clean"]
-            subprocess.run(command, check=True, capture_output=True, text=True, shell=True)
-            combine_allure(str(self.report_dir), auto_create_folders=True)
+            allure_home = os.environ.get('ALLURE_HOME')
+            if allure_home:
+                allure_executable = os.path.join(allure_home, 'bin', 'allure')
+            else:
+                allure_executable = 'allure'
+                logger.warning("ALLURE_HOME environment variable not set. Assuming 'allure' is in the system's PATH.")
+
+            command = [allure_executable, '-v', "generate", "-o", str(self.report_dir), "--clean", '--single-file',
+                       str(self.results_dir)]
+            subprocess.run(command, check=True, capture_output=True, text=True)
             logger.info("Allure report generated successfully.")
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to generate Allure report: {e}")
@@ -98,19 +104,24 @@ class AllureClient(TestReportingClientBase):
             logger.error(f"Stderr: {e.stderr}")
             raise
         except FileNotFoundError:
-            logger.error("Allure command not found. Please ensure Allure is installed and added to your PATH.")
+            logger.error("Allure command not found. Please ensure Allure is installed and ALLURE_HOME is set, "
+                         "or that 'allure' is in your PATH.")
             raise
 
     def _clean_directories(self):
         logger.info(f"Cleaning up {self.results_dir} and {self.report_dir} folders before report generation.")
-        for item in self.results_dir.iterdir():
-            if item.is_dir():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
+        if self.results_dir.exists():
+            for item in self.results_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+            logger.info(f"Cleaned up {self.results_dir}.")
 
-        for item in self.report_dir.iterdir():
-            if item.is_dir():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
+        if self.report_dir.exists():
+            for item in self.report_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+            logger.info(f"Cleaned up {self.report_dir}.")

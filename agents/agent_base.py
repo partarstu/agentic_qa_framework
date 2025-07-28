@@ -163,7 +163,8 @@ class AgentBase(ABC):
                 A BinaryContent object containing the file's data.
             """
         if config.USE_GOOGLE_CLOUD_STORAGE:
-            return utils.fetch_media_file_content_from_gcs(file_path, config.GOOGLE_CLOUD_STORAGE_BUCKET_NAME)
+            return utils.fetch_media_file_content_from_gcs(file_path, config.GOOGLE_CLOUD_STORAGE_BUCKET_NAME,
+                                                           config.JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER)
         else:
             return utils.fetch_media_file_content_from_local(file_path, ATTACHMENTS_DESTINATION_FOLDER_PATH)
 

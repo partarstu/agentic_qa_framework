@@ -1,26 +1,4 @@
 steps:
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'jira-mcp-server'
-      - '--image=mcp/atlassian:latest'
-      - '--network=agent-network'
-      - '--subnet=agent-network'
-      - '--ingress=internal'
-      - '--vpc-egress=private-ranges-only'
-      - '--platform=managed'
-      - '--region=us-central1'
-      - '--allow-unauthenticated'
-      - '--max-instances=1'
-      - '--set-secrets=JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,JIRA_URL=JIRA_URL:latest'
-      - '--port=9000'
-      - '--args=--transport,sse,--port,9000,-vv'
-      - '--add-volume=type=cloud-storage,name=gcs-1,bucket=$_BUCKET_NAME'
-      - '--add-volume-mount=volume=gcs-1,mount-path=/tmp'
-      - '--concurrency=5'
-
   # Build the orchestrator image
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/orchestrator', '-f', 'orchestrator/Dockerfile', '.' ]
@@ -59,6 +37,29 @@ steps:
     args:
       - 'run'
       - 'deploy'
+      - 'jira-mcp-server'
+      - '--image=mcp/atlassian:latest'
+      - '--network=agent-network'
+      - '--subnet=agent-network'
+      - '--ingress=internal'
+      - '--vpc-egress=private-ranges-only'
+      - '--platform=managed'
+      - '--region=us-central1'
+      - '--allow-unauthenticated'
+      - '--max-instances=1'
+      - '--set-secrets=JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,JIRA_URL=JIRA_URL:latest'
+      - '--port=9000'
+      - '--args=--transport,sse,--port,9000,-vv'
+      - '--add-volume=type=cloud-storage,name=gcs-1,bucket=$_BUCKET_NAME'
+      - '--add-volume-mount=volume=gcs-1,mount-path=/tmp'
+      - '--concurrency=5'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'beta'
+      - 'run'
+      - 'deploy'
       - 'orchestrator'
       - '--image=gcr.io/$PROJECT_ID/orchestrator'
       - '--platform=managed'
@@ -73,6 +74,8 @@ steps:
       - '--set-env-vars=^;^REMOTE_EXECUTION_AGENT_HOSTS=$_REMOTE_EXECUTION_AGENT_HOSTS'
       - '--set-env-vars=AGENT_DISCOVERY_PORTS=443-443,GOOGLE_CLOUD_LOGGING_ENABLED=true,USE_CLOUD_STORAGE=true,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME'
       - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest'
+      - '--add-volume=type=cloud-storage,name=gcs-allure-reports,bucket=$_ALLURE_REPORTS_BUCKET'
+      - '--add-volume-mount=volume=gcs-allure-reports,mount-path=$_ALLURE_REPORTS_CONTAINER_PATH'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -152,6 +155,8 @@ steps:
 
 substitutions:
   _BUCKET_NAME: ''
+  _ALLURE_REPORTS_CONTAINER_PATH: '/app/allure-report'
+  _ALLURE_REPORTS_BUCKET: ''
   _REMOTE_EXECUTION_AGENT_HOSTS: ''
   _REQUIREMENTS_REVIEW_AGENT_BASE_URL: ''
   _TEST_CASE_CLASSIFICATION_AGENT_BASE_URL: ''

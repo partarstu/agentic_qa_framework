@@ -45,15 +45,19 @@ def fetch_media_file_content_from_local(remote_file_path: str, attachments_folde
         raise RuntimeError(f"File {local_file_path} is not a media file or mime type could not be determined.")
 
 
-def fetch_media_file_content_from_gcs(remote_file_path: str, bucket_name: str) -> BinaryContent:
+def fetch_media_file_content_from_gcs(remote_file_path: str, bucket_name: str, folder: str) -> BinaryContent:
     from google.cloud import storage
     file_name = Path(remote_file_path).name
+    if folder:
+        blob_name = f"{folder}/{file_name}"
+    else:
+        blob_name = file_name
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(file_name)
+    blob = bucket.blob(blob_name)
 
     if not blob.exists():
-        raise RuntimeError(f"File {file_name} does not exist in GCS bucket {bucket_name}.")
+        raise RuntimeError(f"File {blob_name} does not exist in GCS bucket {bucket_name}.")
 
     file_content = blob.download_as_bytes()
     mime_type, _ = mimetypes.guess_type(file_name)
