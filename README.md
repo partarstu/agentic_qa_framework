@@ -97,15 +97,14 @@ GOOGLE_CLOUD_LOGGING_ENABLED=False # Default: False. Set to "True" to enable Goo
 ORCHESTRATOR_HOST=localhost # Default: localhost. The host where the orchestrator runs.
 ORCHESTRATOR_PORT=8000 # Default: 8000. The port the orchestrator listens on.
 ORCHESTRATOR_URL=http://localhost:8000 # Default: http://localhost:8000. The full URL of the orchestrator.
+ORCHESTRATOR_API_KEY=YOUR_ORCHESTRATOR_API_KEY # Optional. Set this to activate API key authentication for the orchestrator.
+                                 # If set, requests to the orchestrator must include an 'X-API-Key' header with this value.
+                                 # This corresponds to OrchestratorConfig.API_KEY.
 JIRA_MCP_SERVER_URL=http://localhost:9000/sse # Default: http://localhost:9000/sse. The URL of the Jira MCP server.
 
 # Zephyr Test Management System
 ZEPHYR_BASE_URL=YOUR_ZEPHYR_BASE_URL # Required. The base URL of your Zephyr instance.
-
 ZEPHYR_API_TOKEN=YOUR_ZEPHYR_API_TOKEN # Required. API token for Zephyr authentication.
-
-# Jira Webhook Secret (for security)
-JIRA_WEBHOOK_SECRET=YOUR_JIRA_WEBHOOK_SECRET # Required. Secret key for validating Jira webhooks. Must match the one configured in the MCP server.
 
 # Agent Configuration
 AGENT_BASE_URL=http://localhost # Default: http://localhost. Base URL for agents.
@@ -218,11 +217,10 @@ This project is already configured for deployment to Google Cloud Run. The `clou
 building of Docker images and their deployment as separate services. You need to have the gcloud CLI installed before
 you run any of the commands below.
 
-The deployment process is fully automatic, all you need is to create one Cloud Storage bucket for general operations (
-with all needed folders created, see "Substitution Variables"), one Cloud Storage bucket for storing and publicly
+The deployment process is fully automatic, all you need is to create one Cloud Storage bucket for general operations 
+(with all needed folders created, see "Substitution Variables"), one Cloud Storage bucket for storing and publicly
 serving test execution reports (this bucket needs to have public access), and finally setting up the **following secrets
-in the Google Secrets Manager with corresponding
-values**:
+in the Google Secrets Manager with corresponding values**:
 
 * `GOOGLE_API_KEY`
 * `JIRA_API_TOKEN`
@@ -231,6 +229,7 @@ values**:
 * `ZEPHYR_API_TOKEN`
 * `ZEPHYR_BASE_URL`
 * `JIRA_MCP_SERVER_URL`
+* `ORCHESTRATOR_API_KEY`
 
 After having all secrets set up, you can execute the following command:
 
@@ -246,6 +245,8 @@ gcloud builds submit --config 'path/to/your/cloudbuild.yaml' --substitutions "`^
 
 * `_BUCKET_NAME`: The name of the Google Cloud Storage bucket used for storing attachments downloaded by Jira MCP
   server.
+* `_JIRA_ATTACHMENTS_FOLDER`: The name of the folder where attachments from Jira MCP server will be saved, must be the
+  same as 'JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER' environment variable
 * `_ALLURE_REPORTS_BUCKET`: The GCS bucket where test execution HTML reports will be stored.
 * `_REQUIREMENTS_REVIEW_AGENT_BASE_URL`: The URL of the deployed Requirements Review Agent.
 * `_TEST_CASE_GENERATION_AGENT_BASE_URL`: The URL of the deployed Test Case Generation Agent.

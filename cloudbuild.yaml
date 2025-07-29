@@ -35,6 +35,7 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
+      - 'beta'
       - 'run'
       - 'deploy'
       - 'jira-mcp-server'
@@ -50,8 +51,8 @@ steps:
       - '--set-secrets=JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,JIRA_URL=JIRA_URL:latest'
       - '--port=9000'
       - '--args=--transport,sse,--port,9000,-vv'
-      - '--add-volume=type=cloud-storage,name=gcs-1,bucket=$_BUCKET_NAME'
-      - '--add-volume-mount=volume=gcs-1,mount-path=/tmp'
+      - '--add-volume=type=cloud-storage,name=jira-volume,bucket=$_BUCKET_NAME,mount-options=only-dir=$_JIRA_ATTACHMENTS_FOLDER'
+      - '--add-volume-mount=volume=jira-volume,mount-path=/tmp'
       - '--concurrency=5'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -72,8 +73,8 @@ steps:
       - '--max-instances=1'
       - '--concurrency=1'
       - '--set-env-vars=^;^REMOTE_EXECUTION_AGENT_HOSTS=$_REMOTE_EXECUTION_AGENT_HOSTS'
-      - '--set-env-vars=AGENT_DISCOVERY_PORTS=443-443,GOOGLE_CLOUD_LOGGING_ENABLED=true,USE_CLOUD_STORAGE=true,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME'
-      - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest'
+      - '--set-env-vars=AGENT_DISCOVERY_PORTS=443-443,GOOGLE_CLOUD_LOGGING_ENABLED=true,USE_CLOUD_STORAGE=true,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME,JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER=$_JIRA_ATTACHMENTS_FOLDER'
+      - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest,ORCHESTRATOR_API_KEY=ORCHESTRATOR_API_KEY:latest'
       - '--add-volume=type=cloud-storage,name=gcs-allure-reports,bucket=$_ALLURE_REPORTS_BUCKET'
       - '--add-volume-mount=volume=gcs-allure-reports,mount-path=$_ALLURE_REPORTS_CONTAINER_PATH'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -93,7 +94,7 @@ steps:
       - '--max-instances=1'
       - '--concurrency=1'
       - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,JIRA_MCP_SERVER_URL=JIRA_MCP_SERVER_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest'
-      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_REQUIREMENTS_REVIEW_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME'
+      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_REQUIREMENTS_REVIEW_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME,JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER=$_JIRA_ATTACHMENTS_FOLDER'
       - '--port=8001'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
@@ -112,7 +113,7 @@ steps:
       - '--max-instances=1'
       - '--concurrency=1'
       - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,JIRA_MCP_SERVER_URL=JIRA_MCP_SERVER_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest'
-      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_TEST_CASE_GENERATION_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME'
+      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_TEST_CASE_GENERATION_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME,JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER=$_JIRA_ATTACHMENTS_FOLDER'
       - '--port=8001'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
@@ -131,7 +132,7 @@ steps:
       - '--max-instances=1'
       - '--concurrency=1'
       - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,JIRA_MCP_SERVER_URL=JIRA_MCP_SERVER_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest'
-      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_TEST_CASE_CLASSIFICATION_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME'
+      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_TEST_CASE_CLASSIFICATION_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME,JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER=$_JIRA_ATTACHMENTS_FOLDER'
       - '--port=8001'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
@@ -150,10 +151,11 @@ steps:
       - '--max-instances=1'
       - '--concurrency=1'
       - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,JIRA_MCP_SERVER_URL=JIRA_MCP_SERVER_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest'
-      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_TEST_CASE_REVIEW_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME'
+      - '--set-env-vars=USE_CLOUD_STORAGE=true,GOOGLE_CLOUD_LOGGING_ENABLED=true,AGENT_BASE_URL=$_TEST_CASE_REVIEW_AGENT_BASE_URL,CLOUD_STORAGE_BUCKET_NAME=$_BUCKET_NAME,JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER=$_JIRA_ATTACHMENTS_FOLDER'
       - '--port=8001'
 
 substitutions:
+  _JIRA_ATTACHMENTS_FOLDER: 'jira'
   _BUCKET_NAME: ''
   _ALLURE_REPORTS_CONTAINER_PATH: '/app/allure-report'
   _ALLURE_REPORTS_BUCKET: ''

@@ -21,7 +21,6 @@ from a2a.types import TaskState, AgentCard, Artifact, Task, SendMessageRequest, 
     FilePart, FileWithBytes
 from a2a.utils import new_agent_text_message, get_message_text
 from fastapi import FastAPI, Request, HTTPException, Security, Depends
-from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
 from pydantic_ai import Agent
 from pydantic_ai.settings import ModelSettings
@@ -41,7 +40,7 @@ agent_registry: Dict[str, AgentCard] = {}
 discovery_lock = asyncio.Lock()
 
 API_KEY_NAME = "X-API-Key"
-api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 
 # noinspection PyUnusedLocal
@@ -59,14 +58,11 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             logger.info("Agent discovery task successfully cancelled.")
 
-
-orchestrator_app = FastAPI(lifespan=lifespan)
-
-
 def _validate_api_key(api_key: str = Security(api_key_header)):
     if config.OrchestratorConfig.API_KEY and api_key != config.OrchestratorConfig.API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
 
+orchestrator_app = FastAPI(lifespan=lifespan)
 
 def with_exclusive_lock(func):
     @wraps(func)
@@ -142,7 +138,7 @@ async def periodic_agent_discovery():
 
 @orchestrator_app.post("/new-requirements-available")
 @with_exclusive_lock
-async def review_jira_requirements(request: Request):
+async def review_jira_requirements(request: Request, api_key: str = Depends(_validate_api_key)):
     """
     Receives webhook from Jira and triggers the requirements review.
     """
@@ -160,7 +156,7 @@ async def review_jira_requirements(request: Request):
 
 @orchestrator_app.post("/story-ready-for-test-case-generation")
 @with_exclusive_lock
-async def trigger_test_case_generation_workflow(request: Request):
+async def trigger_test_case_generation_workflow(request: Request, api_key: str = Depends(_validate_api_key)):
     """
     Receives webhook from Jira and triggers the test case generation.
     """
@@ -187,7 +183,7 @@ async def trigger_test_case_generation_workflow(request: Request):
 
 @orchestrator_app.post("/execute-tests")
 @with_exclusive_lock
-async def execute_tests(request: ProjectExecutionRequest):
+async def execute_tests(request: ProjectExecutionRequest, api_key: str = Depends(_validate_api_key)):
     # _validate_request_authorization(request)
     project_key = request.project_key
     logger.info(f"Received request to execute automated tests for project '{project_key}'.")
