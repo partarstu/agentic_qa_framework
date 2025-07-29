@@ -13,12 +13,13 @@ load_dotenv()
 
 # Logging
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+GOOGLE_CLOUD_LOGGING_ENABLED = os.environ.get("GOOGLE_CLOUD_LOGGING_ENABLED", "False").lower() in ("true", "1", "t")
 
 # URLs
 ORCHESTRATOR_HOST = os.environ.get("ORCHESTRATOR_HOST", "localhost")
 ORCHESTRATOR_PORT = int(os.environ.get("ORCHESTRATOR_PORT", "8000"))
 ORCHESTRATOR_URL = os.environ.get("ORCHESTRATOR_URL", f"http://{ORCHESTRATOR_HOST}:{ORCHESTRATOR_PORT}")
-JIRA_MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://localhost:9000/sse")
+JIRA_MCP_SERVER_URL = os.environ.get("JIRA_MCP_SERVER_URL", "http://localhost:9000/sse")
 ZEPHYR_BASE_URL = os.environ.get("ZEPHYR_BASE_URL")
 
 # Webhook URLs
@@ -31,12 +32,15 @@ JIRA_WEBHOOK_SECRET = os.environ.get("JIRA_WEBHOOK_SECRET")
 ZEPHYR_API_TOKEN = os.environ.get("ZEPHYR_API_TOKEN")
 
 # Agent
-AGENT_BASE_URL = "http://localhost"
-AGENT_HOST = os.environ.get("AGENT_HOST", "localhost")
-ATTACHMENTS_REMOTE_FOLDER_PATH = "/tmp"
-ATTACHMENTS_LOCAL_FOLDER_PATH = "D://temp"
-REMOTE_EXECUTION_AGENTS_URLS = os.environ.get("REMOTE_EXECUTION_AGENTS_URLS")
+AGENT_BASE_URL = os.environ.get("AGENT_BASE_URL", "http://localhost")
+MCP_SERVER_ATTACHMENTS_FOLDER_PATH = "/tmp"
+ATTACHMENTS_DESTINATION_FOLDER_PATH = "D://temp"
+REMOTE_EXECUTION_AGENT_HOSTS = os.environ.get("REMOTE_EXECUTION_AGENT_HOSTS")
 AGENT_DISCOVERY_PORTS = os.environ.get("AGENT_DISCOVERY_PORTS")
+USE_GOOGLE_CLOUD_STORAGE = os.environ.get("USE_CLOUD_STORAGE", "False").lower() in ("true", "1", "t")
+GOOGLE_CLOUD_STORAGE_BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET_NAME")
+JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER = os.environ.get("JIRA_ATTACHMENTS_CLOUD_STORAGE_FOLDER", "jira")
+MCP_SERVER_TIMEOUT_SECONDS = 30
 
 # Test Management System
 ZEPHYR_COMMENTS_CUSTOM_FIELD_NAME = "Review Comments"
@@ -60,17 +64,20 @@ TEMPERATURE = 0.0
 # Orchestrator
 class OrchestratorConfig:
     AUTOMATED_TC_LABEL = "automated"
-    AGENTS_DISCOVERY_INTERVAL_SECONDS = 3000
+    AGENTS_DISCOVERY_INTERVAL_SECONDS = 300
     TASK_EXECUTION_TIMEOUT = 500.0
-    AGENT_DISCOVERY_TIMEOUT_SECONDS = 3.0
+    AGENT_DISCOVERY_TIMEOUT_SECONDS = 30
+    INCOMING_REQUEST_WAIT_TIMEOUT = AGENT_DISCOVERY_TIMEOUT_SECONDS + 5
     MODEL_NAME = "google-gla:gemini-2.5-flash"
+    API_KEY = os.environ.get("ORCHESTRATOR_API_KEY")
 
 
 # Requirements Review Agent
 class RequirementsReviewAgentConfig:
     THINKING_BUDGET = 10000
     OWN_NAME = "Jira Requirements Reviewer"
-    PORT = 8001
+    PORT = int(os.environ.get("PORT", "8001"))
+    EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-pro"
 
@@ -79,7 +86,8 @@ class RequirementsReviewAgentConfig:
 class TestCaseClassificationAgentConfig:
     THINKING_BUDGET = 2000
     OWN_NAME = "Test Case Classification Agent"
-    PORT = 8003
+    PORT = int(os.environ.get("PORT", "8003"))
+    EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-flash"
 
@@ -88,7 +96,8 @@ class TestCaseClassificationAgentConfig:
 class TestCaseGenerationAgentConfig:
     THINKING_BUDGET = 0
     OWN_NAME = "Test Case Generation Agent"
-    PORT = 8002
+    PORT = int(os.environ.get("PORT", "8002"))
+    EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-flash"
 
@@ -98,6 +107,7 @@ class TestCaseReviewAgentConfig:
     THINKING_BUDGET = 10000
     REVIEW_COMPLETE_STATUS_NAME = "Review Complete"
     OWN_NAME = "Test Case Review Agent"
-    PORT = 8004
+    PORT = int(os.environ.get("PORT", "8004"))
+    EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-pro"

@@ -6,3 +6,6 @@ mcp/jira/.env
 /allure-report
 /allure-results/
 /.run
+ GEMINI.md
+/.gemini
+substitutions.yaml

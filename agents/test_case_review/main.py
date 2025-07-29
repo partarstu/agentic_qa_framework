@@ -12,7 +12,7 @@ from common.models import TestCaseReviewRequest, TestCaseReviewFeedbacks
 from common.services.test_management_system_client_provider import get_test_management_client
 
 logger = utils.get_logger("test_case_review_agent")
-jira_mcp_server = MCPServerSSE(url=config.JIRA_MCP_SERVER_URL)
+jira_mcp_server = MCPServerSSE(url=config.JIRA_MCP_SERVER_URL, timeout=config.MCP_SERVER_TIMEOUT_SECONDS)
 
 
 class TestCaseReviewAgent(AgentBase):
@@ -20,8 +20,9 @@ class TestCaseReviewAgent(AgentBase):
         instruction_prompt = TestCaseReviewSystemPrompt()
         super().__init__(
             agent_name=config.TestCaseReviewAgentConfig.OWN_NAME,
-            host=config.AGENT_HOST,
+            host=config.AGENT_BASE_URL,
             port=config.TestCaseReviewAgentConfig.PORT,
+            external_port=config.TestCaseReviewAgentConfig.EXTERNAL_PORT,
             protocol=config.TestCaseReviewAgentConfig.PROTOCOL,
             model_name=config.TestCaseReviewAgentConfig.MODEL_NAME,
             deps_type=TestCaseReviewRequest,
@@ -73,5 +74,8 @@ class TestCaseReviewAgent(AgentBase):
         return result_info
 
 
+agent = TestCaseReviewAgent()
+app = agent.a2a_server
+
 if __name__ == "__main__":
-    TestCaseReviewAgent().start_as_server()
+    agent.start_as_server()
