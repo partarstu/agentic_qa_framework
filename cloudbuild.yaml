@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Taras Paruta (partarstu@gmail.com)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 steps:
   # Build the orchestrator image
   - name: 'gcr.io/cloud-builders/docker'
@@ -77,6 +81,7 @@ steps:
       - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,JIRA_API_TOKEN=JIRA_API_TOKEN:latest,JIRA_USERNAME=JIRA_USERNAME:latest,ZEPHYR_API_TOKEN=ZEPHYR_API_TOKEN:latest,JIRA_URL=JIRA_URL:latest,ZEPHYR_BASE_URL=ZEPHYR_BASE_URL:latest,ORCHESTRATOR_API_KEY=ORCHESTRATOR_API_KEY:latest'
       - '--add-volume=type=cloud-storage,name=gcs-allure-reports,bucket=$_ALLURE_REPORTS_BUCKET'
       - '--add-volume-mount=volume=gcs-allure-reports,mount-path=$_ALLURE_REPORTS_CONTAINER_PATH'
+      - '--timeout=$_ORCHESTRATOR_REQUEST_TIMEOUT'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -164,6 +169,7 @@ substitutions:
   _TEST_CASE_CLASSIFICATION_AGENT_BASE_URL: ''
   _TEST_CASE_GENERATION_AGENT_BASE_URL: ''
   _TEST_CASE_REVIEW_AGENT_BASE_URL: ''
+  _ORCHESTRATOR_REQUEST_TIMEOUT: '3500s'
 
 images:
   - 'gcr.io/$PROJECT_ID/requirements-review-agent'

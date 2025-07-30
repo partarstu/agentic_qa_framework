@@ -7,7 +7,6 @@ from typing import List, Dict
 
 import dateutil
 import httpx
-from dateutil.parser import parse
 
 import config
 from common import utils
@@ -346,7 +345,7 @@ class ZephyrClient(TestManagementClientBase):
         step_data = test_step_response.json()
         return step_data
 
-    def create_test_cycle(self, project_key: str, name: str, description: str = None) -> str:
+    def create_test_plan(self, project_key: str, name: str, description: str = None) -> str:
         """
         Creates a new test cycle in Zephyr.
 

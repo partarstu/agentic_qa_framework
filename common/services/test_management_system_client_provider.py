@@ -7,10 +7,15 @@ from common.services.test_management_base import TestManagementClientBase
 from common.services.zephyr_client import ZephyrClient
 
 
+from common.services.xray_client import XrayClient
+
+
 def get_test_management_client() -> TestManagementClientBase:
     test_management_system = config.TEST_MANAGEMENT_SYSTEM
     if test_management_system == "zephyr":
         client = ZephyrClient()
+    elif test_management_system == "xray":
+        client = XrayClient()
     else:
         raise ValueError(f"Unsupported value of the environment variable JIRA_TEST_MANAGEMENT_SYSTEM: "
                          f"{test_management_system}")

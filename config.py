@@ -21,6 +21,9 @@ ORCHESTRATOR_PORT = int(os.environ.get("ORCHESTRATOR_PORT", "8000"))
 ORCHESTRATOR_URL = os.environ.get("ORCHESTRATOR_URL", f"http://{ORCHESTRATOR_HOST}:{ORCHESTRATOR_PORT}")
 JIRA_MCP_SERVER_URL = os.environ.get("JIRA_MCP_SERVER_URL", "http://localhost:9000/sse")
 ZEPHYR_BASE_URL = os.environ.get("ZEPHYR_BASE_URL")
+JIRA_BASE_URL = os.environ.get("JIRA_URL")
+JIRA_USER = os.environ.get("JIRA_USERNAME")
+JIRA_TOKEN = os.environ.get("JIRA_API_TOKEN")
 
 # Webhook URLs
 NEW_REQUIREMENTS_WEBHOOK_URL = f"{ORCHESTRATOR_URL}/new-requirements-available"
@@ -30,6 +33,11 @@ EXECUTE_TESTS_WEBHOOK_URL = f"{ORCHESTRATOR_URL}/execute-tests"
 # Secrets
 JIRA_WEBHOOK_SECRET = os.environ.get("JIRA_WEBHOOK_SECRET")
 ZEPHYR_API_TOKEN = os.environ.get("ZEPHYR_API_TOKEN")
+
+XRAY_BASE_URL = os.environ.get("XRAY_BASE_URL")
+XRAY_CLIENT_ID = os.environ.get("XRAY_CLIENT_ID")
+XRAY_CLIENT_SECRET = os.environ.get("XRAY_CLIENT_SECRET")
+XRAY_PRECONDITIONS_FIELD_ID = os.environ.get("XRAY_PRECONDITIONS_FIELD_ID", "Pre-conditions")
 
 # Agent
 AGENT_BASE_URL = os.environ.get("AGENT_BASE_URL", "http://localhost")

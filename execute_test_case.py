@@ -53,7 +53,7 @@ async def send_test_case_to_agent(agent_port: int, test_case: TestCase):
             response = await a2a_client.send_message(request)
             logger.info(f"Successfully sent task for test case {test_case.id} to agent on port {agent_port}.")
 
-            logger.info(f"Retrieving agent's response.")
+            logger.info("Retrieving agent's response.")
             result = response.root
             if isinstance(result, JSONRPCErrorResponse):
                 logger.error(f"Couldn't execute the task '{task_description}'. Root cause: {result.error}")

@@ -135,11 +135,11 @@ class AgentBase(ABC):
 
     async def run(self, received_message: Message) -> Message:
         received_request = self._get_all_received_contents(received_message)
-        logger.info(f"Got a task to execute, starting execution.")
+        logger.info("Got a task to execute, starting execution.")
         async with self.agent.run_mcp_servers():
             result = await self.agent.run(received_request)
         self._log_model_messages(result.new_messages())
-        logger.info(f"Completed execution of the task.")
+        logger.info("Completed execution of the task.")
         return self._get_text_message_from_results(result)
 
     # noinspection PyUnusedLocal
