@@ -35,7 +35,7 @@ class TestManagementClientBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_test_cycle(self, project_key: str, name: str, description: str = None) -> str:
+    def create_test_plan(self, project_key: str, name: str, description: str = None) -> str:
         raise NotImplementedError
 
     @abstractmethod

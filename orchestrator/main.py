@@ -58,11 +58,14 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             logger.info("Agent discovery task successfully cancelled.")
 
+
 def _validate_api_key(api_key: str = Security(api_key_header)):
     if config.OrchestratorConfig.API_KEY and api_key != config.OrchestratorConfig.API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
 
+
 orchestrator_app = FastAPI(lifespan=lifespan)
+
 
 def with_exclusive_lock(func):
     @wraps(func)
@@ -72,12 +75,14 @@ def with_exclusive_lock(func):
             async with asyncio.timeout(config.OrchestratorConfig.INCOMING_REQUEST_WAIT_TIMEOUT):
                 await discovery_lock.acquire()
             lock_acquired = True
+            logger.info("Lock acquired by request processing.")
             return await func(*args, **kwargs)
         except TimeoutError:
             _handle_exception("Could not acquire lock to process request, please try again later.", 503)
         finally:
             if lock_acquired:
                 discovery_lock.release()
+                logger.info("Lock released by request processing.")
 
     return wrapper
 
@@ -126,6 +131,7 @@ async def periodic_agent_discovery():
     while True:
         try:
             async with discovery_lock:
+                logger.info("Lock acquired by agent discovery.")
                 logger.info("Starting periodic agent discovery...")
                 await _discover_agents()
                 logger.info("Periodic agent discovery finished.")
@@ -219,7 +225,7 @@ async def execute_tests(request: ProjectExecutionRequest, api_key: str = Depends
 
 async def _generate_test_report(all_execution_results, project_key, test_management_client):
     test_cycle_name = f"Automated Test Execution - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    test_cycle_key = test_management_client.create_test_cycle(project_key, test_cycle_name)
+    test_cycle_key = test_management_client.create_test_plan(project_key, test_cycle_name)
     test_management_client.create_test_execution(all_execution_results, project_key, test_cycle_key)
     reporting_client = get_test_reporting_client(str(Path(__file__).resolve().parent.parent.resolve()))
     reporting_client.generate_report(all_execution_results)

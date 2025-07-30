@@ -217,21 +217,42 @@ This project is already configured for deployment to Google Cloud Run. The `clou
 building of Docker images and their deployment as separate services. You need to have the gcloud CLI installed before
 you run any of the commands below.
 
-The deployment process is fully automatic, all you need is to create one Cloud Storage bucket for general operations 
-(with all needed folders created, see "Substitution Variables"), one Cloud Storage bucket for storing and publicly
-serving test execution reports (this bucket needs to have public access), and finally setting up the **following secrets
-in the Google Secrets Manager with corresponding values**:
+#### Preconditions:
 
-* `GOOGLE_API_KEY`
-* `JIRA_API_TOKEN`
-* `JIRA_USERNAME`
-* `JIRA_URL`
-* `ZEPHYR_API_TOKEN`
-* `ZEPHYR_BASE_URL`
-* `JIRA_MCP_SERVER_URL`
-* `ORCHESTRATOR_API_KEY`
+1. Existing VPC network. This one can be created with the following commands:
+    ```bash
+   gcloud compute networks create agent-network --subnet-mode=custom
+   gcloud compute networks subnets create SUBNET_NAME --network=NETWORK_NAME --range=IP_RANGE --region=REGION
+    ```
+   The target subnetwork network also must have Private Google Access activated so that agents running in Google Cloud
+   Run could reach
+   other agents which have "internal" ingress (basically all agents have it except orchestrator).
+2. Access to the Secrets Manager. This one can be created with the following command:
+    ```bash
+   gcloud projects add-iam-policy-binding <project_id> --member="serviceAccount:<project_number>-compute@developer.gserviceaccount.com" --role="roles/secretmanager.secretAccessor" 
+    ```
+3. Cloud NAT in order to route requests from the VPC network out to the internet. This one can be created with the
+   following commands:
+    ```bash
+   gcloud compute routers create ROUTER_NAME --network=NETWORK_NAME --region=REGION
+   gcloud compute routers nats create NAT_GATEWAY_NAME --router=ROUTER_NAME --region=REGION --nat-all-subnet-ip-ranges 
+    ```
+4. The following **secrets in the Google Secrets Manager** with corresponding values need to be added:
+    * `GOOGLE_API_KEY`
+    * `JIRA_API_TOKEN`
+    * `JIRA_USERNAME`
+    * `JIRA_URL`
+    * `ZEPHYR_API_TOKEN`
+    * `ZEPHYR_BASE_URL`
+    * `JIRA_MCP_SERVER_URL`
+    * `ORCHESTRATOR_API_KEY`
+5. Cloud Storage bucket for general operations (with all needed folders created, see "Substitution Variables").
+6. Cloud Storage bucket for storing and publicly serving test execution reports (this bucket needs to have public
+   access)
 
-After having all secrets set up, you can execute the following command:
+#### Deployment:
+
+After having all preconditions fulfilled, you can execute the following command:
 
 ```bash
 gcloud builds submit --config 'path/to/your/cloudbuild.yaml' --substitutions "^;^_BUCKET_NAME=YOUR_GCS_BUCKET_NAME;_ALLURE_REPORTS_BUCKET=YOUR_ALLURE_REPORTS_BUCKET_NAME;_REQUIREMENTS_REVIEW_AGENT_BASE_URL=YOUR_REQUIREMENTS_REVIEW_AGENT_URL;_TEST_CASE_GENERATION_AGENT_BASE_URL=YOUR_TEST_CASE_GENERATION_AGENT_URL;_TEST_CASE_CLASSIFICATION_AGENT_BASE_URL=YOUR_TEST_CASE_CLASSIFICATION_AGENT_URL;_TEST_CASE_REVIEW_AGENT_BASE_URL=YOUR_TEST_CASE_REVIEW_AGENT_URL;_REMOTE_EXECUTION_AGENT_HOSTS=YOUR_COMMA_SEPARATED_AGENT_HOSTS" .
@@ -242,7 +263,6 @@ gcloud builds submit --config 'path/to/your/cloudbuild.yaml' --substitutions "`^
 ```
 
 **Substitution Variables:**
-
 * `_BUCKET_NAME`: The name of the Google Cloud Storage bucket used for storing attachments downloaded by Jira MCP
   server.
 * `_JIRA_ATTACHMENTS_FOLDER`: The name of the folder where attachments from Jira MCP server will be saved, must be the
