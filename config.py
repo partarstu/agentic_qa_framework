@@ -88,6 +88,7 @@ class RequirementsReviewAgentConfig:
     EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-pro"
+    MAX_REQUESTS_PER_TASK = 10
 
 
 # Test Case Classification Agent
@@ -98,6 +99,7 @@ class TestCaseClassificationAgentConfig:
     EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-flash"
+    MAX_REQUESTS_PER_TASK = 5
 
 
 # Test Case Generation Agent
@@ -108,6 +110,7 @@ class TestCaseGenerationAgentConfig:
     EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-flash"
+    MAX_REQUESTS_PER_TASK = 10
 
 
 # Test Case Review Agent
@@ -119,3 +122,4 @@ class TestCaseReviewAgentConfig:
     EXTERNAL_PORT = int(os.environ.get("EXTERNAL_PORT", "443"))
     PROTOCOL = "http"
     MODEL_NAME = "google-gla:gemini-2.5-pro"
+    MAX_REQUESTS_PER_TASK = 5
