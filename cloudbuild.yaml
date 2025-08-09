@@ -177,3 +177,6 @@ images:
   - 'gcr.io/$PROJECT_ID/test-case-classification-agent'
   - 'gcr.io/$PROJECT_ID/test-case-review-agent'
   - 'gcr.io/$PROJECT_ID/orchestrator'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
